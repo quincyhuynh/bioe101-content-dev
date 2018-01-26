@@ -1,0 +1,5 @@
+Download everything in the Lab 1 Folder on bCourses > Files > Lab 1
+Start the lab1.ipynb notebook by:
+ - opening up your terminal
+ - changing to the directory (using cd) to the location where you downloaded Lab 1
+ - enter in the command "ipython notebook lab1.ipynb" or  jupyter notebook lab1.ipynb" without quotes
