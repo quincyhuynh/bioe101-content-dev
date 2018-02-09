@@ -10,6 +10,10 @@ import sys
 import serial
 import time
 
+device = 'COM11'
+baud = 115200
+comms = serial.Serial(device, baud)
+
 
 class AudioStream(object):
     def __init__(self):
@@ -109,16 +113,6 @@ class AudioStream(object):
             return 0
 
 if __name__ == '__main__':
-    if len(sys.argv) < 2:
-        print("You must enter in a COM or /dev/ port")
-        sys.exit()
-    global device 
-    device = sys.argv[1]
-    print(device)
-    global baud
-    baud = 115200
-    global comms 
-    comms = serial.Serial(device, baud)
     try:
         audio_app = AudioStream()
         audio_app.animation()

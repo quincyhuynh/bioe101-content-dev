@@ -1,0 +1,13 @@
+Lab 3 Notes:
+
+- Power the divider and wheatstone bridge circuits with 5V DC from the power supply
+
+- Test the dynamic range and sensitivity of the pressure sensor by creating a voltage divider with the sensor and a 200k-1M resistor (I used 680kOhm and it worked fine). The nominal untouched voltage across the sensor should be 2-3V and it should go straight to 0 when touching the sensor hard. If it doesn't this is a sign that the sensor isnt a good one, so switch it out for another
+
+- For the wheatstone bridge I used 1.6Ohm for the three resistors.
+
+- For the Arduino, tell students to hook up vd and vc to A0 and A1 respectively and the ground of the circuit to the GND pin of the board as well.
+
+- I created a code snippet that runs polynomial fitting on their weight-to-voltage data. No one needs to understand the code except change the values in the weights, voltages and unknown_val variables. If anything's unclear about the code please send me an email
+
+- If they want to use the Arduino to read voltages, they have to upload the read_voltage sketch in the lab3 folder. This code takes the differential voltage 
