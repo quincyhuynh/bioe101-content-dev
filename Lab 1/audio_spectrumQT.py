@@ -9,6 +9,33 @@ from scipy.fftpack import fft
 import sys
 import time
 
+class Slider(QWidget):
+    def __init__(self, minimum, maximum, parent=None):
+        super(Slider, self).__init__(parent=parent)
+        self.verticalLayout = QVBoxLayout(self)
+        self.label = QLabel(self)
+        self.verticalLayout.addWidget(self.label)
+        self.horizontalLayout = QHBoxLayout()
+        spacerItem = QSpacerItem(0, 20, QSizePolicy.Expanding, QSizePolicy.Minimum)
+        self.horizontalLayout.addItem(spacerItem)
+        self.slider = QSlider(self)
+        self.slider.setOrientation(Qt.Vertical)
+        self.horizontalLayout.addWidget(self.slider)
+        spacerItem1 = QSpacerItem(0, 20, QSizePolicy.Expanding, QSizePolicy.Minimum)
+        self.horizontalLayout.addItem(spacerItem1)
+        self.verticalLayout.addLayout(self.horizontalLayout)
+        self.resize(self.sizeHint())
+
+        self.minimum = minimum
+        self.maximum = maximum
+        self.slider.valueChanged.connect(self.setLabelValue)
+        self.x = None
+        self.setLabelValue(self.slider.value())
+
+    def setLabelValue(self, value):
+        self.x = self.minimum + (float(value) / (self.slider.maximum() - self.slider.minimum())) * (
+        self.maximum - self.minimum)
+        self.label.setText("{0:.4g}".format(self.x))
 
 class AudioStream(object):
     def __init__(self):
@@ -18,8 +45,14 @@ class AudioStream(object):
         self.traces = dict()
         self.app = QtGui.QApplication(sys.argv)
         self.win = pg.GraphicsWindow(title='Spectrum Analyzer')
+        self.app.setWindowIcon(QtGui.QIcon('./spectrum_icon.png'))
         self.win.setWindowTitle('Spectrum Analyzer')
-        self.win.setGeometry(5, 115, 1910, 1070)
+        self.win.setGeometry(5, 115, 1810, 1000)
+        self.win.showMaximized()
+
+        self.tray = QtGui.QSystemTrayIcon()
+        self.tray.setIcon(QtGui.QIcon('./spectrum_icon.png'))
+        self.tray.setVisible(True)
 
         wf_xlabels = [(0, '0'), (2048, '2048'), (4096, '4096')]
         wf_xaxis = pg.AxisItem(orientation='bottom')
@@ -29,12 +62,8 @@ class AudioStream(object):
         wf_yaxis = pg.AxisItem(orientation='left')
         wf_yaxis.setTicks([wf_ylabels])
 
-        sp_xlabels = [
-            (np.log10(10), '10'), (np.log10(100), '100'),
-            (np.log10(1000), '1000'), (np.log10(22050), '22050')
-        ]
+
         sp_xaxis = pg.AxisItem(orientation='bottom')
-        sp_xaxis.setTicks([sp_xlabels])
 
         self.waveform = self.win.addPlot(
             title='WAVEFORM', row=1, col=1, axisItems={'bottom': wf_xaxis, 'left': wf_yaxis},
@@ -72,25 +101,25 @@ class AudioStream(object):
         else:
             if name == 'waveform':
                 self.traces[name] = self.waveform.plot(pen='c', width=3)
-                self.waveform.setYRange(0, 255, padding=0)
+                self.waveform.setYRange(-128, 127, padding=0)
                 self.waveform.setXRange(0, 2 * self.CHUNK, padding=0.005)
             if name == 'spectrum':
                 self.traces[name] = self.spectrum.plot(pen='m', width=3)
-                self.spectrum.setLogMode(x=True, y=True)
-                self.spectrum.setYRange(-4, 0, padding=0)
+                self.spectrum.setYRange(0, 1024, padding=0)
                 self.spectrum.setXRange(
-                    np.log10(20), np.log10(self.RATE / 2), padding=0.005)
+                    20, self.RATE / 2, padding=0.005)
 
     def update(self):
         wf_data = self.stream.read(self.CHUNK)
         wf_data = struct.unpack(str(2 * self.CHUNK) + 'B', wf_data)
-        wf_data = np.array(wf_data, dtype='b')[::2] + 128
+        wf_data = np.array(wf_data, dtype='b')[::2]
         self.set_plotdata(name='waveform', data_x=self.x, data_y=wf_data,)
-
-        sp_data = fft(np.array(wf_data, dtype='int8') - 128)
+        sp_data = fft(np.array(wf_data, dtype='int8'))
+        sp_data[0] = min(sp_data)
         sp_data = np.abs(sp_data[0:int(self.CHUNK / 2)]
-                         ) * 2 / (128 * self.CHUNK)
+                         * 2 / (self.CHUNK))
         self.set_plotdata(name='spectrum', data_x=self.f, data_y=sp_data)
+        self.spectrum.setYRange(min(sp_data), max(sp_data), padding=0)
 
     def animation(self):
         timer = QtCore.QTimer()

@@ -22,7 +22,7 @@ class SerialStream(object):
         self.win.setWindowIcon(QtGui.QIcon('./spectrum_icon.png'))
         self.win.setWindowTitle('Spectrum Analyzer')
         self.win.setGeometry(5, 115, 1810, 1000)
-        self.win.showMaximized()
+        self.win.showFullScreen()
 
         self.tray = QtGui.QSystemTrayIcon()
         self.tray.setIcon(QtGui.QIcon('./spectrum_icon.png'))
@@ -53,7 +53,7 @@ class SerialStream(object):
         # pyaudio stuff
         self.FORMAT = pyaudio.paInt16
         self.CHANNELS = 1
-        self.RATE = 78000
+        self.RATE = 16000
         self.CHUNK = 1024*2
 
         self.p = pyaudio.PyAudio()
@@ -67,7 +67,7 @@ class SerialStream(object):
         )
         # waveform and spectrum x points
 
-        self.x = np.arange(0, 2 * self.CHUNK, 2)
+        self.x = np.arange(0, 2 * self.CHUNK, 2)/self.RATE
         self.f = np.linspace(0, self.RATE / 2, self.CHUNK / 2)
 
 
@@ -95,7 +95,7 @@ class SerialStream(object):
     def update(self):
         wf_data = np.array(self.sample(self.CHUNK))
         self.x = np.arange(0, 2 * self.CHUNK, 2)/self.RATE
-        self.f = np.linspace(0, self.RATE / 2, self.CHUNK / 2)
+        print(self.x)
         self.set_plotdata(name='waveform', data_x=self.x, data_y=wf_data,)
         y_fft = fft(wf_data)
         y_fft[0] = 0 # remove DC for FFT
@@ -103,7 +103,6 @@ class SerialStream(object):
         self.set_plotdata(name='spectrum', data_x=self.f, data_y=sp_data)
         self.waveform.setYRange(0, 1.1*max(wf_data), padding=0)
         self.spectrum.setYRange(0, 1.1*max(sp_data), padding=0)
-        self.spectrum.setXRange(0, self.RATE / 2, padding=0.005)
 
     def animation(self):
         timer = QtCore.QTimer()
@@ -113,19 +112,18 @@ class SerialStream(object):
 
     def sample(self, size):
         # serial write section
-        device.write('s'.encode())
+        device.write('s\r\n'.encode())
         device.flush()
+        device.readline()
         time.sleep(0.1)
 
         # # serial read section
         while True:
             try:
                 serial_buf = device.readline().decode('utf-8').strip().split(',')
-                print(serial_buf)
                 if serial_buf == ['']:
                     break
-                data, self.RATE = [3.3*float(i)/(2**12) for i in serial_buf[:-1]], int(1e6*size/(float(serial_buf[-1])))
-                print(self.RATE)
+                data, self.RATE = [3.3*float(i)/(2**16) for i in serial_buf[:-1]], int(size/(float(serial_buf[-1])))
                 return data
             except Exception as e:
                 print(e)
