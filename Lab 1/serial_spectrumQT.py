@@ -5,6 +5,7 @@ import pyqtgraph as pg
 import struct
 import pyaudio
 from scipy.fftpack import fft
+from scipy.signal import decimate
 
 import sys
 import serial
@@ -19,7 +20,7 @@ class SerialStream(object):
         self.traces = dict()
         self.app = QtGui.QApplication(sys.argv)
         self.win = pg.GraphicsWindow(title='Spectrum Analyzer')
-        self.win.setWindowIcon(QtGui.QIcon('./spectrum_icon.png'))
+        self.app.setWindowIcon(QtGui.QIcon('./spectrum_icon.png'))
         self.win.setWindowTitle('Spectrum Analyzer')
         self.win.setGeometry(5, 115, 1810, 1000)
         self.win.showMaximized()
@@ -54,7 +55,8 @@ class SerialStream(object):
         self.FORMAT = pyaudio.paInt16
         self.CHANNELS = 1
         self.RATE = 78000
-        self.CHUNK = 1024*2
+        self.CHUNK = 512
+        self.M = 4
 
         self.p = pyaudio.PyAudio()
         self.stream = self.p.open(
@@ -93,16 +95,19 @@ class SerialStream(object):
                     0, self.RATE / 2, padding=0.005)
 
     def update(self):
+        start_fft = time.monotonic()
         wf_data = np.array(self.sample(self.CHUNK))
-        self.x = np.arange(0, 2 * self.CHUNK, 2)/self.RATE
+        stop_fft = time.monotonic()
+        self.x = np.arange(0, 2 * self.CHUNK, 2)/(self.RATE)
         self.f = np.linspace(0, self.RATE / 2, self.CHUNK / 2)
         self.set_plotdata(name='waveform', data_x=self.x, data_y=wf_data,)
         y_fft = fft(wf_data)
         y_fft[0] = 0 # remove DC for FFT
-        sp_data = np.abs(y_fft)[0:self.CHUNK//2] * 2/self.CHUNK
+        sp_data = np.abs(y_fft)[0:self.CHUNK//2]/max(np.abs(y_fft))
+        print(stop_fft - start_fft)
         self.set_plotdata(name='spectrum', data_x=self.f, data_y=sp_data)
         self.waveform.setYRange(0, 1.1*max(wf_data), padding=0)
-        self.spectrum.setYRange(0, 1.1*max(sp_data), padding=0)
+        self.spectrum.setYRange(0, 1, padding=0)
         self.spectrum.setXRange(0, self.RATE / 2, padding=0.005)
 
     def animation(self):
@@ -115,17 +120,15 @@ class SerialStream(object):
         # serial write section
         device.write('s'.encode())
         device.flush()
-        time.sleep(0.1)
+        time.sleep(0.05)
 
         # # serial read section
         while True:
             try:
                 serial_buf = device.readline().decode('utf-8').strip().split(',')
-                print(serial_buf)
                 if serial_buf == ['']:
                     break
-                data, self.RATE = [3.3*float(i)/(2**12) for i in serial_buf[:-1]], int(1e6*size/(float(serial_buf[-1])))
-                print(self.RATE)
+                data, self.RATE, self.CHUNK = [3.3*float(i)/(2**12) for i in serial_buf[:-2]], int(serial_buf[-2]), int(serial_buf[-1])
                 return data
             except Exception as e:
                 print(e)
@@ -144,7 +147,7 @@ if __name__ == '__main__':
     global port, baud, device
     port = sys.argv[1]
     print(port)
-    baud = 115200
+    baud = 2000000
     device = serial.Serial(
                 port = port,
                 baudrate = baud,
